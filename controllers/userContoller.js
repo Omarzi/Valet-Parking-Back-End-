@@ -416,6 +416,181 @@ exports.getSpecificGarage = asyncHandler(async (req, res, next) => {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// exports.makeOrder = asyncHandler(async (req, res, next) => {
+//   const { garage, typeOfCar, timeRange, totalPrice, paymentMethod, date, duration, isPaid, status, startNow } = req.body;
+
+//   // Parse start and end times from the hh:mm:ss am/pm format
+//   const startTime = moment(timeRange.start, 'hh:mm:ss A').toDate();
+//   const endTime = moment(timeRange.end, 'hh:mm:ss A').toDate();
+
+//   if (!startTime || !endTime) {
+//     return res.status(400).json({ message: 'Invalid time format. Please use hh:mm:ss am/pm.' });
+//   }
+
+//   // Validate and check for overlapping orders
+//   if (startNow === false) {
+//     if (!duration || !timeRange) {
+//       return res.status(400).json({ message: 'Duration and TimeRange are required' });
+//     }
+
+//     const foundOrder = await orderSchema.findOne({
+//       user: req.params.userId,
+//       date,
+//       $and: [
+//         { "timeRange.start": { $lt: endTime, $gte: startTime } },
+//         { "timeRange.end": { $lte: endTime, $gt: startTime } }
+//       ]
+//     });
+
+//     if (foundOrder) {
+//       return next(new ApiError(`Order with this timeRange already exists for the user`, 409));
+//     }
+//   }
+
+//   // Fetch user and garage data
+//   const user = await userSchema.findById(req.params.userId).select('-__v'); // Exclude version field
+//   const garageData = await garageSchema.findById(garage).select('-__v'); // Exclude version field
+
+//   if (!user || !garageData) {
+//     return res.status(404).json({ message: 'User or garage not found' });
+//   }
+
+//   // Calculate timeLeft
+//   let timeLeft;
+//   const now = Date.now();
+//   const startTimestamp = startTime.getTime();
+//   const endTimestamp = endTime.getTime();
+//   if (startTimestamp <= now) {
+//     timeLeft = endTimestamp - now;
+//   }
+
+//   // Create the new order
+//   const newOrderData = {
+//     user: req.params.userId,
+//     garage: garage,
+//     typeOfCar,
+//     date,
+//     timeRange: {
+//       start: startTime,
+//       end: endTime
+//     },
+//     totalPrice,
+//     duration,
+//     paymentMethod,
+//     isPaid,
+//     status,
+//     startNow,
+//     timeLeft
+//   };
+
+//   // // Handle wallet payment logic if paymentMethod is 'wallet'
+//   // if (paymentMethod === 'wallet') {
+//   //   if (user.wallet < totalPrice) {
+//   //     return res.status(400).json({ message: 'Insufficient wallet balance' });
+//   //   }
+
+//   //   // Subtract the totalPrice from the wallet
+//   //   user.wallet -= totalPrice;
+//   //   await user.save();
+//   // }
+
+//   // Validate if the user has a wallet field
+//   if (paymentMethod === 'wallet') {
+//     if (user.wallet === undefined || user.wallet === null || isNaN(user.wallet)) {
+//       return res.status(422).json({ message: 'User wallet information is missing or invalid' });
+//     }
+
+//     if (user.wallet < totalPrice) {
+//       return res.status(422).json({ message: 'Insufficient wallet balance' });
+//     }
+
+//     // Subtract the totalPrice from the wallet
+//     user.wallet -= totalPrice;
+//     await user.save();
+//   } 
+
+//   // Generate QR code
+//   const qrData = JSON.stringify({ userId: req.params.userId, garageId: garage });
+//   try {
+//     const qrImage = await QRCode.toDataURL(qrData);
+//     newOrderData.qrCode = qrImage;
+
+//     // Save the new order
+//     const newOrder = await orderSchema.create(newOrderData);
+
+//     // Populate the user and garage details in the newly created order
+//     const populatedOrder = await newOrder.populate([
+//       {
+//         path: 'user',
+//         model: 'Users',
+//         select: '-__v' // Fetch all user data except the version field
+//       },
+//       {
+//         path: 'garage',
+//         model: 'Garages',
+//         select: '-__v' // Fetch all garage data except the version field
+//       }
+//     ]);
+
+//     // Custom formatting of user and garage data
+//     const formattedOrder = {
+//       orderId: populatedOrder._id,
+//       user: {
+//         userId: populatedOrder.user._id,
+//         name: populatedOrder.user.username,
+//         email: populatedOrder.user.email,
+//         phone: populatedOrder.user.phone,
+//         carName: populatedOrder.user.carName,
+//         carNumber: populatedOrder.user.carNumber,
+//         wallet: populatedOrder.user.wallet,
+//         createdAt: formatDate(populatedOrder.user.createdAt),
+//         updatedAt: formatDate(populatedOrder.user.updatedAt)
+//       },
+//       garage: {
+//         garageId: populatedOrder.garage._id,
+//         driver:populatedOrder.garage.driver || [],
+//         subOwner: populatedOrder.garage.subOwner || [],
+//         garageId: populatedOrder.garage._id.toString(), // Format _id as a string
+//         gragename: populatedOrder.garage.gragename || '',
+//         grageDescription: populatedOrder.garage.grageDescription || '',
+//         grageImages: populatedOrder.garage.grageImages || '',
+//         gragePricePerHoure: populatedOrder.garage.gragePricePerHoure || 0,
+//         lat: populatedOrder.garage.lat || 0,
+//         lng: populatedOrder.garage.lng || 0,
+//         openDate:formatDate(populatedOrder.garage.openDate),
+//         endDate: formatDate(populatedOrder.garage.endDate) ,/// Format ISO 8601
+//         active: populatedOrder.garage.active || false,
+//         createdAt: formatDate(populatedOrder.garage.createdAt),
+//         updatedAt: formatDate(populatedOrder.garage.updatedAt)
+//       },
+//       typeOfCar: populatedOrder.typeOfCar,
+//       date: populatedOrder.date,
+//       timeRange: {
+//         start: moment(populatedOrder.timeRange.start).format('h:mm A'),
+//         end: moment(populatedOrder.timeRange.end).format('h:mm A')
+//       },
+//       totalPrice: populatedOrder.totalPrice,
+//       duration: populatedOrder.duration,
+//       paymentMethod: populatedOrder.paymentMethod,
+//       isPaid: populatedOrder.isPaid,
+//       status: populatedOrder.status,
+//       startNow: populatedOrder.startNow,
+//       timeLeft: populatedOrder.timeLeft,
+//       qrCode: populatedOrder.qrCode,
+//       createdAt: formatDate(populatedOrder.createdAt),
+//       updatedAt: formatDate(populatedOrder.updatedAt)
+//     };
+
+//     res.status(201).json({
+//       message: 'Order created successfully',
+//       order: formattedOrder // Return the formatted order
+//     });
+//   } catch (err) {
+//     console.error('Error generating QR code:', err);
+//     return next(new ApiError('Failed to generate QR code', 500));
+//   }
+// });
+
 exports.makeOrder = asyncHandler(async (req, res, next) => {
   const { garage, typeOfCar, timeRange, totalPrice, paymentMethod, date, duration, isPaid, status, startNow } = req.body;
 
@@ -455,6 +630,28 @@ exports.makeOrder = asyncHandler(async (req, res, next) => {
     return res.status(404).json({ message: 'User or garage not found' });
   }
 
+  // Function to generate a unique order number
+  const generateUniqueOrderNumber = async () => {
+    let orderNumber;
+    let isUnique = false;
+
+    while (!isUnique) {
+      // Generate a random order number, e.g., a 6-digit number
+      orderNumber = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Check if the generated order number already exists in the database
+      const existingOrder = await orderSchema.findOne({ orderNumber });
+      if (!existingOrder) {
+        isUnique = true; // The generated order number is unique
+      }
+    }
+
+    return orderNumber;
+  };
+
+  // Generate a unique order number
+  const orderNumber = await generateUniqueOrderNumber();
+
   // Calculate timeLeft
   let timeLeft;
   const now = Date.now();
@@ -480,19 +677,9 @@ exports.makeOrder = asyncHandler(async (req, res, next) => {
     isPaid,
     status,
     startNow,
-    timeLeft
+    timeLeft,
+    orderNumber // Add the unique order number to the order data
   };
-
-  // // Handle wallet payment logic if paymentMethod is 'wallet'
-  // if (paymentMethod === 'wallet') {
-  //   if (user.wallet < totalPrice) {
-  //     return res.status(400).json({ message: 'Insufficient wallet balance' });
-  //   }
-
-  //   // Subtract the totalPrice from the wallet
-  //   user.wallet -= totalPrice;
-  //   await user.save();
-  // }
 
   // Validate if the user has a wallet field
   if (paymentMethod === 'wallet') {
@@ -507,7 +694,7 @@ exports.makeOrder = asyncHandler(async (req, res, next) => {
     // Subtract the totalPrice from the wallet
     user.wallet -= totalPrice;
     await user.save();
-  } 
+  }
 
   // Generate QR code
   const qrData = JSON.stringify({ userId: req.params.userId, garageId: garage });
@@ -535,6 +722,7 @@ exports.makeOrder = asyncHandler(async (req, res, next) => {
     // Custom formatting of user and garage data
     const formattedOrder = {
       orderId: populatedOrder._id,
+      orderNumber: populatedOrder.orderNumber,
       user: {
         userId: populatedOrder.user._id,
         name: populatedOrder.user.username,
@@ -548,17 +736,17 @@ exports.makeOrder = asyncHandler(async (req, res, next) => {
       },
       garage: {
         garageId: populatedOrder.garage._id,
-        driver:populatedOrder.garage.driver || [],
+        driver: populatedOrder.garage.driver || [],
         subOwner: populatedOrder.garage.subOwner || [],
-        garageId: populatedOrder.garage._id.toString(), // Format _id as a string
+        garageId: populatedOrder.garage._id.toString(),
         gragename: populatedOrder.garage.gragename || '',
         grageDescription: populatedOrder.garage.grageDescription || '',
         grageImages: populatedOrder.garage.grageImages || '',
         gragePricePerHoure: populatedOrder.garage.gragePricePerHoure || 0,
         lat: populatedOrder.garage.lat || 0,
         lng: populatedOrder.garage.lng || 0,
-        openDate:formatDate(populatedOrder.garage.openDate),
-        endDate: formatDate(populatedOrder.garage.endDate) ,/// Format ISO 8601
+        openDate: formatDate(populatedOrder.garage.openDate),
+        endDate: formatDate(populatedOrder.garage.endDate),
         active: populatedOrder.garage.active || false,
         createdAt: formatDate(populatedOrder.garage.createdAt),
         updatedAt: formatDate(populatedOrder.garage.updatedAt)
@@ -583,13 +771,14 @@ exports.makeOrder = asyncHandler(async (req, res, next) => {
 
     res.status(201).json({
       message: 'Order created successfully',
-      order: formattedOrder // Return the formatted order
+      order: formattedOrder
     });
   } catch (err) {
     console.error('Error generating QR code:', err);
     return next(new ApiError('Failed to generate QR code', 500));
   }
 });
+
 
 // exports.makeOrder = asyncHandler(async (req, res, next) => {
 //   const {
@@ -691,6 +880,7 @@ exports.getOrder = asyncHandler(async( req , res , next) => {
   else{
     const formattedOrder = {
       orderId: order._id,
+      orderNumber: order.orderNumber,
       user: {
         userId: order.user._id,
         name: order.user.username,
@@ -974,6 +1164,7 @@ exports.getAllOrders = asyncHandler(async (req, res, next) => {
 
     return {
       orderId: order._id.toString(),
+      orderNumber: order.orderNumber,
       user: user._id ? {
         userId: user._id.toString(),
         name: user.username || '',
@@ -1154,6 +1345,102 @@ exports.getUserWallet = asyncHandler(async (req, res, next) => {
 //   res.status(200).json({ "order Details": formattedOrders });
 // });
 
+////////////
+// exports.getAllOrdersForSpecificUser = asyncHandler(async (req, res, next) => {
+//   // Get the user ID from the decoded token
+//   const userId = req.user._id;
+
+//   // Extract timeRange parameters and query params
+//   const { "timeRange.start": timeRangeStart, "timeRange.end": timeRangeEnd, ...query } = req.query;
+
+//   let timeRangeQuery = {};
+
+//   // Check if timeRangeStart and timeRangeEnd are provided
+//   if (timeRangeStart && timeRangeEnd) {
+//       const startTime = moment(timeRangeStart, 'hh:mm:ss A').toDate();
+//       const endTime = moment(timeRangeEnd, 'hh:mm:ss A').toDate();
+
+//       if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+//           return res.status(400).json({ message: 'Invalid time format. Please use hh:mm:ss am/pm.' });
+//       }
+
+//       timeRangeQuery = {
+//           "timeRange.start": { $gte: startTime },
+//           "timeRange.end": { $lte: endTime }
+//       };
+//   }
+
+//   // Add the userId from the token to the query
+//   const finalQuery = { ...query, ...timeRangeQuery, user: userId };
+
+//   // Find the orders based on the query
+//   const orders = await orderSchema.find(finalQuery).populate( {
+//     path: 'garage',
+//     model: 'Garages',
+//     select: '-__v'
+// });
+
+//   if (!orders || orders.length === 0) {
+//       return res.status(200).json({ "order Details": [] });
+//   }
+
+//   // Helper function to format date
+//   const formatDate = (date) => moment(date).format('hh:mm A');
+
+//   // Format each order
+//   const formattedOrders = orders.map(order => {
+//     const user = req.user || {};
+//     const garage = order.garage || {}; // Ensure garage is an object
+  
+//     return {
+//       orderId: order._id.toString(),
+//       orderNumber: order.orderNumber,
+//       user: req.user._id ? {
+//         userId: user._id.toString(),
+//         name: user.username || '',
+//         email: user.email || '',
+//         phone: user.phone || '',
+//         carName: user.carName || '',
+//         carNumber: user.carNumber || '',
+//         createdAt: formatDate(user.createdAt),
+//         updatedAt: formatDate(user.updatedAt)
+//       } : null, // Return null if user does not exist
+//       garage: garage._id ? { // Check if garage exists
+//         garageId: garage._id.toString(), // Assign _id to garageId
+//         garageImages: garage.garageImages || [], // Ensure garageImages is always an array
+//         garageName: garage.gragename || '', // Fixed naming
+//         garageDescription: garage.grageDescription || '', // Fixed naming
+//         garagePricePerHour: garage.gragePricePerHoure || 0, // Fixed naming
+//         lat: garage.lat || 0,
+//         lng: garage.lng || 0,
+//         openDate: formatDate(garage.openDate, 'YYYY-MM-DD h:mm A'),
+//         endDate: formatDate(garage.endDate, 'YYYY-MM-DD h:mm A'),
+//         active: garage.active || false,
+//         createdAt: formatDate(garage.createdAt),
+//         updatedAt: formatDate(garage.updatedAt)
+//       } : null, // Return null if garage does not exist
+//       typeOfCar: order.typeOfCar || '',
+//       date: formatDate(order.date, 'YYYY-MM-DD'), // Ensure correct ISO formatting
+//       timeRange: {
+//         start: moment(order.timeRange.start).format('h:mm A'),
+//         end: moment(order.timeRange.end).format('h:mm A')
+//       },
+//       totalPrice: order.totalPrice || 0,
+//       duration: order.duration || 0,
+//       paymentMethod: order.paymentMethod || '',
+//       status: order.status || '',
+//       startNow: order.startNow || false,
+//       isPaid: order.isPaid || false,
+//       qrCode: order.qrCode || '',
+//       createdAt: formatDate(order.createdAt),
+//       updatedAt: formatDate(order.updatedAt)
+//     };
+//   });
+
+//   // Send the formatted orders as the response
+//   res.status(200).json({ "order Details": formattedOrders });
+// });
+/////////////////
 
 exports.getAllOrdersForSpecificUser = asyncHandler(async (req, res, next) => {
   // Get the user ID from the decoded token
@@ -1166,43 +1453,44 @@ exports.getAllOrdersForSpecificUser = asyncHandler(async (req, res, next) => {
 
   // Check if timeRangeStart and timeRangeEnd are provided
   if (timeRangeStart && timeRangeEnd) {
-      const startTime = moment(timeRangeStart, 'hh:mm:ss A').toDate();
-      const endTime = moment(timeRangeEnd, 'hh:mm:ss A').toDate();
+    const startTime = moment(timeRangeStart, 'hh:mm:ss A').toDate();
+    const endTime = moment(timeRangeEnd, 'hh:mm:ss A').toDate();
 
-      if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-          return res.status(400).json({ message: 'Invalid time format. Please use hh:mm:ss am/pm.' });
-      }
+    if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      return res.status(400).json({ message: 'Invalid time format. Please use hh:mm:ss am/pm.' });
+    }
 
-      timeRangeQuery = {
-          "timeRange.start": { $gte: startTime },
-          "timeRange.end": { $lte: endTime }
-      };
+    timeRangeQuery = {
+      "timeRange.start": { $gte: startTime },
+      "timeRange.end": { $lte: endTime }
+    };
   }
 
   // Add the userId from the token to the query
   const finalQuery = { ...query, ...timeRangeQuery, user: userId };
 
   // Find the orders based on the query
-  const orders = await orderSchema.find(finalQuery).populate( {
+  const orders = await orderSchema.find(finalQuery).populate({
     path: 'garage',
     model: 'Garages',
     select: '-__v'
-});
+  });
 
   if (!orders || orders.length === 0) {
-      return res.status(200).json({ "order Details": [] });
+    return res.status(200).json({ "order Details": [] });
   }
 
   // Helper function to format date
-  const formatDate = (date) => moment(date).format('hh:mm A');
+  const formatDate = (date) => moment(date).format('YYYY-MM-DD h:mm A');
 
   // Format each order
   const formattedOrders = orders.map(order => {
     const user = req.user || {};
     const garage = order.garage || {}; // Ensure garage is an object
-  
+
     return {
       orderId: order._id.toString(),
+      orderNumber: order.orderNumber || 0, // Include the orderNumber
       user: req.user._id ? {
         userId: user._id.toString(),
         name: user.username || '',
@@ -1210,6 +1498,7 @@ exports.getAllOrdersForSpecificUser = asyncHandler(async (req, res, next) => {
         phone: user.phone || '',
         carName: user.carName || '',
         carNumber: user.carNumber || '',
+        wallet: user.wallet || 0,
         createdAt: formatDate(user.createdAt),
         updatedAt: formatDate(user.updatedAt)
       } : null, // Return null if user does not exist
@@ -1221,14 +1510,14 @@ exports.getAllOrdersForSpecificUser = asyncHandler(async (req, res, next) => {
         garagePricePerHour: garage.gragePricePerHoure || 0, // Fixed naming
         lat: garage.lat || 0,
         lng: garage.lng || 0,
-        openDate: formatDate(garage.openDate, 'YYYY-MM-DD h:mm A'),
-        endDate: formatDate(garage.endDate, 'YYYY-MM-DD h:mm A'),
+        openDate: formatDate(garage.openDate),
+        endDate: formatDate(garage.endDate),
         active: garage.active || false,
         createdAt: formatDate(garage.createdAt),
         updatedAt: formatDate(garage.updatedAt)
       } : null, // Return null if garage does not exist
       typeOfCar: order.typeOfCar || '',
-      date: formatDate(order.date, 'YYYY-MM-DD'), // Ensure correct ISO formatting
+      date: formatDate(order.date), // Ensure correct ISO formatting
       timeRange: {
         start: moment(order.timeRange.start).format('h:mm A'),
         end: moment(order.timeRange.end).format('h:mm A')

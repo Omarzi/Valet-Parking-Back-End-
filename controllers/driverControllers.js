@@ -105,14 +105,14 @@ exports.activeGarage = asyncHandler(async (req, res, next) => {
 ///       Add New User   //
 
 exports.addNewUser = asyncHandler(async(req , res , next) => {
-    const foundUser  = await userSchema.findOne({email : req.body.email})
+    const foundUser  = await userSchema.findOne({phone : req.body.phone})
     
         if(foundUser){
             throw new ApiError("this user is already exist .",404)
        }
        else{  
         const user = await userSchema.create({
-            email: req.body.email,
+          phone: req.body.phone,
             password: req.body.password
         })
 
@@ -124,7 +124,7 @@ exports.addNewUser = asyncHandler(async(req , res , next) => {
         
         const formattedUser = {
           userId: user._id.toString(), 
-          email: user.email,
+          phone: user.phone,
           password:user.password,
           createdAt: formatDate(user.createdAt),
           updatedAt: formatDate(user.updatedAt)

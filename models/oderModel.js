@@ -42,6 +42,10 @@ const orderSchema = new mongoose.Schema({
     
   },
   
+  orderNumber: {
+    type: Number,
+  },
+  
   status: {
     type: String,
     enum: ["completed", "ongoing", "canceled"],

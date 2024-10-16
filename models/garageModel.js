@@ -29,6 +29,11 @@ const garageSchema = new mongoose.Schema({
         require:true
     },
 
+    // addressName: {
+    //     type: String,
+    //     require:true
+    // },
+
     openDate :{
         type:Date,
         require:true

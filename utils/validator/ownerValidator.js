@@ -132,13 +132,13 @@ exports.addNewGarageValidator = [
      .notEmpty()
      .withMessage("endDate is required"), 
 
-  check("driver")
-     .notEmpty()
-     .withMessage("driver is required"), 
+  // check("driver")
+  //    .notEmpty()
+  //    .withMessage("driver is required"), 
 
-  check("subOwner")
-     .notEmpty()
-     .withMessage("subOwner is required"),    
+  // check("subOwner")
+    //  .notEmpty()
+    //  .withMessage("subOwner is required"),    
     validatorMiddleware,
 
 ]
